@@ -1,0 +1,20 @@
+import { registerEnumType } from '@nestjs/graphql';
+
+export enum ROLETYPES {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ECOMMERCE_ADMIN = 'ECOMMERCE_ADMIN',
+  OVES_TECHNICIAN = 'OVES TECHNICIAN',
+  OVES_OVERALL_TECHNICIAN = 'OVERALL OVES TECHNICIAN',
+  // MERCHANT = 'MERCHANT',
+  BUYER = 'BUYER',
+  DISTRIBUTOR = 'DISTRIBUTOR',
+  AGENT = 'AGENT',
+  NGO = 'NGO',
+  SERVICER = 'SERVICER',
+  SUPPLIER = 'SUPPLIER',
+  ORGANIZATION = 'ORGANIZATION',
+}
+
+registerEnumType(ROLETYPES, {
+  name: 'RoleTypesInput',
+});

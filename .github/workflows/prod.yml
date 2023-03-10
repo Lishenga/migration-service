@@ -1,0 +1,90 @@
+name: GraphQl Migration Service for OVES
+on:
+  push:
+    branches:
+      - prod
+
+env:
+  IMAGE_NAME: migration-service
+  AWS_ACCESS_KEY_ID: ${{ secrets.DEV_CODEDEPLOY_AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.DEV_CODEDEPLOY_AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: eu-central-1
+  S3_BUCKET: ${{ secrets.DEV_CODEDEPLOY_S3_BUCKET }}
+  APPLICATION_NAME: ${{ secrets.APPLICATION_NAME }}
+  DEPLOYMENT_GROUP: ${{ secrets.DEV_DEPLOYMENT_GROUP }}
+  DOCKER_USERNAME: lishenga
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: build and deploy on staging
+    strategy:
+      matrix:
+        node-version: [12.x]
+    steps:
+      - name: ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - uses: actions/checkout@v2
+      - run: |
+          rm -rf .git
+
+  build-push-image-and-codedeploy:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    needs: build
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Log into registry
+        # This is where you will update the PAT to GITHUB_TOKEN
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "master" ] && VERSION=latest
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+          docker tag $IMAGE_NAME $IMAGE_ID:dev
+          docker push $IMAGE_ID:dev
+
+      # - name: Upload
+      #   id: upload
+      #   uses: Lishenga/aws-code-deploy@v1
+      #   with:
+      #     AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+      #     AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+      #     APPLICATION_NAME: ${{ env.APPLICATION_NAME }}
+      #     S3_BUCKET: ${{ env.S3_BUCKET }}
+      #     COMMAND: 'upload'
+      #     ZIP_FILE: 'build.zip'
+      # - name: Deploy
+      #   id: deploy
+      #   uses: Lishenga/aws-code-deploy@v1
+      #   with:
+      #     AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+      #     AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+      #     APPLICATION_NAME: ${{ env.APPLICATION_NAME }}
+      #     DEPLOYMENT_GROUP: ${{ env.DEPLOYMENT_GROUP }}
+      #     S3_BUCKET: ${{ env.S3_BUCKET }}
+      #     COMMAND: 'deploy'
+      #     WAIT: 'true'
+      #     IGNORE_APPLICATION_STOP_FAILURES: 'true'
+      #     FILE_EXISTS_BEHAVIOR: 'OVERWRITE'
