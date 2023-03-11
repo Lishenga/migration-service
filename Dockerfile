@@ -9,7 +9,7 @@ WORKDIR /usr/src/app
 COPY . .
 # RUN rm -rf dist
 
-# RUN npm i --f
+RUN npm i --f
 # RUN npm run build
 # RUN npm i next
 # RUN npm install --force
